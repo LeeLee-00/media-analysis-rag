@@ -1,0 +1,106 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./frontend:/app
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONIOENCODING=UTF-8
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+
+  ollama:
+    volumes:
+      - ./ollama/ollama:/root/.ollama
+      - ./entrypoint.sh:/entrypoint.sh
+    container_name: ollama
+    pull_policy: always
+    tty: true
+    restart: unless-stopped
+    image: docker.io/ollama/ollama:latest
+    ports:
+      - 7869:11434
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+    # deploy:  #UNCOMMENT IN PRODUCTION OR WHERE NVIDIA GPU IS AVAILABLE
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    entrypoint: ["/usr/bin/bash", "entrypoint.sh"]
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: idst
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./shared/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.0
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Uncomment the following service if you want to run the media ingestion script
+  # media-ingest:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   command: python scripts/batch_ingest_media.py
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     elasticsearch:
+  #       condition: service_healthy
+  #   volumes:
+  #     - ./backend:/app
+  #     - /Volumes/easystore:/easystore
+  #   environment:
+  #     - POSTGRES_HOST=postgres
+  #     - POSTGRES_DB=idst
+  #     - POSTGRES_USER=postgres
+  #     - POSTGRES_PASSWORD=postgres
+  #     - ELASTIC_HOST=http://elasticsearch:9200
+  #     - PYTHONPATH=/app
+
+
+
+volumes:
+  postgres_data:
+  esdata:
