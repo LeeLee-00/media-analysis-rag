@@ -86,7 +86,7 @@ docker-compose up --build
 ## 🧪 Development
 
 - **Linting:** Uses [Ruff](https://github.com/charliermarsh/ruff) (`ruff check .`)
-- **Testing:** (Add your test instructions here)
+- **Testing:** (WIP)
 - **Logs:** Backend logs to `logs/ingest_logs.log` by default.
 
 ---
